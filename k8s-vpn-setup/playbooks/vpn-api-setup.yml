@@ -1,5 +1,7 @@
 ---
 - hosts: k8s_master
   become: yes
+  vars_files:
+    - vars/main.yml
   roles:
     - vpn-api
