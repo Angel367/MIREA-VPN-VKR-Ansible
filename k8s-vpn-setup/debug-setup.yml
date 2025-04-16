@@ -1,0 +1,38 @@
+---
+- name: Проверка переменных и основной настройки
+  hosts: k8s_master
+  become: yes
+  vars_files:
+    - vars/main.yml
+  tasks:
+    - name: Показать значения переменных
+      debug:
+        msg:
+          - "pod_network_cidr: {{ pod_network_cidr }}"
+          - "network_interface: {{ network_interface }}"
+          - "kubernetes_version: {{ kubernetes_version }}"
+
+    - name: Проверить интерфейс
+      shell: ip addr show {{ network_interface }}
+      register: ip_check
+      ignore_errors: yes
+
+    - name: Результат проверки интерфейса
+      debug:
+        msg: "{{ ip_check.stdout }}"
+      when: ip_check is success
+
+    - name: Предупреждение, если интерфейс не найден
+      debug:
+        msg: "Интерфейс {{ network_interface }} не найден! Проверьте название интерфейса."
+      when: ip_check is failed
+
+    - name: Получить список всех сетевых интерфейсов
+      shell: ip link show | grep -v 'lo:' | awk -F': ' '{print $2}'
+      register: all_interfaces
+      when: ip_check is failed
+
+    - name: Доступные интерфейсы
+      debug:
+        msg: "Доступные интерфейсы: {{ all_interfaces.stdout_lines }}"
+      when: ip_check is failed
