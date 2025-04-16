@@ -5,10 +5,10 @@ pod_network_cidr: "10.244.0.0/16"
 service_cidr: "10.96.0.0/12"
 
 # Переменные для сети
-network_interface: "ens3"  # Проверьте, что это правильный интерфейс
+network_interface: "ens3"
 
 # Docker настройки
-docker_version: "5:24.0.6-1~ubuntu.22.04~jammy"
+docker_version: "5:24.0.7-1~ubuntu.22.04~jammy"
 
 # Переменные Outline
 outline_version: "1.14.1"

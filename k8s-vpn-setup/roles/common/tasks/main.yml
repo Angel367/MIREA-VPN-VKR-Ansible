@@ -60,15 +60,51 @@
     state: present
     update_cache: yes
 
-- name: Добавить GPG ключ Docker
-  apt_key:
+- name: Создать директорию для ключей Docker
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: 0755
+
+- name: Скачать GPG ключ Docker
+  get_url:
     url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
+    dest: /tmp/docker.key
+    mode: 0644
+
+- name: Добавить ключ Docker в новый формат
+  shell: |
+    cat /tmp/docker.key | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
 
 - name: Добавить репозиторий Docker
   apt_repository:
-    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+    repo: deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
     state: present
+    filename: docker
+
+- name: Создать директорию для ключей Kubernetes
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: 0755
+
+- name: Скачать GPG ключ Kubernetes
+  get_url:
+    url: https://pkgs.k8s.io/core:/stable:/v1.26/deb/Release.key
+    dest: /tmp/kubernetes.key
+    mode: 0644
+
+- name: Добавить ключ Kubernetes в новый формат
+  shell: |
+    cat /tmp/kubernetes.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes.gpg
+    chmod a+r /etc/apt/keyrings/kubernetes.gpg
+
+- name: Добавить репозиторий Kubernetes
+  apt_repository:
+    repo: deb [signed-by=/etc/apt/keyrings/kubernetes.gpg] https://pkgs.k8s.io/core:/stable:/v1.26/deb/ /
+    state: present
+    filename: kubernetes
 
 - name: Установить Docker
   apt:
@@ -79,23 +115,12 @@
     state: present
     update_cache: yes
 
-- name: Добавить GPG ключ Kubernetes
-  apt_key:
-    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
-    state: present
-
-- name: Добавить репозиторий Kubernetes
-  apt_repository:
-    repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
-    state: present
-    filename: kubernetes
-
 - name: Установить kubeadm, kubelet и kubectl
   apt:
     name:
-      - kubelet={{ kubernetes_version }}-00
-      - kubeadm={{ kubernetes_version }}-00
-      - kubectl={{ kubernetes_version }}-00
+      - kubelet
+      - kubeadm
+      - kubectl
     state: present
     update_cache: yes
 
