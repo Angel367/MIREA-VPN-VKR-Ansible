@@ -28,7 +28,7 @@
       when: ip_check is failed
 
     - name: Получить список всех сетевых интерфейсов
-      shell: ip link show | grep -v 'lo:' | awk -F': ' '{print $2}'
+      shell: "ip link show | grep -v 'lo:' | awk -F': ' '{print $2}'"
       register: all_interfaces
       when: ip_check is failed
 
