@@ -1,0 +1,13 @@
+[Unit]
+Description=Outline VPN API Service
+After=docker.service
+
+[Service]
+ExecStart=/usr/bin/node /opt/outline/scripts/outline-api.js
+Restart=always
+User=root
+Environment=NODE_ENV=production
+WorkingDirectory=/opt/outline/scripts
+
+[Install]
+WantedBy=multi-user.target

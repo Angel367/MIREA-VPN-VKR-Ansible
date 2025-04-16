@@ -1,0 +1,24 @@
+---
+- hosts: k8s_workers
+  become: yes
+  roles:
+    - common
+  vars:
+    join_command: "{{ hostvars[groups['k8s_master'][0]]['join_command'] }}"
+  tasks:
+    - name: Присоединение к кластеру Kubernetes
+      command: "{{ join_command }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
+      register: join_cluster
+
+    - name: Создание директории для локального хранилища
+      file:
+        path: /mnt/k8s-storage
+        state: directory
+        mode: 0755
+
+    - name: Добавление метки с расположением узла
+      command: "kubectl label node {{ inventory_hostname }} topology.kubernetes.io/region={{ location }}"
+      delegate_to: "{{ groups['k8s_master'][0] }}"
+      when: join_cluster.changed

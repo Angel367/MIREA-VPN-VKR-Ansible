@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: outline-servers
+  namespace: vpn
+data:
+  servers.json: |
+    {
+      "servers": [
+        {% for host in groups['k8s_workers'] %}
+        {
+          "name": "{{ host }}",
+          "location": "{{ hostvars[host]['location'] }}",
+          "ip": "{{ hostvars[host]['ansible_host'] }}",
+          "api_port": {{ outline_api_port }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+    }

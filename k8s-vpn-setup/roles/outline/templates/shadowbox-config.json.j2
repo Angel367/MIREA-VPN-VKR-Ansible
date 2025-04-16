@@ -1,0 +1,10 @@
+{
+  "apiUrl": "https://{{ ansible_host }}:{{ outline_api_port }}/",
+  "certsha256": "CERTIFICATE_FINGERPRINT",
+  "apiPortForNewAccessKeys": {{ outline_api_port }},
+  "createdTimestampMs": {{ ansible_date_time.epoch * 1000 }},
+  "name": "Outline VPN {{ location }}",
+  "serverId": "{{ inventory_hostname }}",
+  "metricsEnabled": false,
+  "version": "{{ outline_version }}"
+}

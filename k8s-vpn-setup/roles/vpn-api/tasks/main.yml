@@ -1,0 +1,46 @@
+---
+- name: Создание директории для конфигурационных файлов
+  file:
+    path: /root/vpn-api
+    state: directory
+    mode: 0755
+  delegate_to: "{{ groups['k8s_master'][0] }}"
+
+- name: Копирование VPN API deployment
+  template:
+    src: vpn-api-deployment.yml.j2
+    dest: /root/vpn-api/vpn-api-deployment.yml
+  delegate_to: "{{ groups['k8s_master'][0] }}"
+
+- name: Копирование VPN API service
+  template:
+    src: vpn-api-service.yml.j2
+    dest: /root/vpn-api/vpn-api-service.yml
+  delegate_to: "{{ groups['k8s_master'][0] }}"
+
+- name: Создание конфигурации для интеграции Outline Server
+  template:
+    src: outline-integration.yml.j2
+    dest: /root/vpn-api/outline-integration.yml
+  delegate_to: "{{ groups['k8s_master'][0] }}"
+
+- name: Копирование Telegram Bot deployment
+  template:
+    src: telegram-bot-deployment.yml.j2
+    dest: /root/vpn-api/telegram-bot-deployment.yml
+  delegate_to: "{{ groups['k8s_master'][0] }}"
+
+- name: Создание ConfigMap для серверов Outline
+  template:
+    src: outline-servers-configmap.yml.j2
+    dest: /root/vpn-api/outline-servers-configmap.yml
+  delegate_to: "{{ groups['k8s_master'][0] }}"
+
+- name: Применение VPN API конфигурации
+  command: kubectl apply -f /root/vpn-api/{{ item }}
+  loop:
+    - outline-servers-configmap.yml
+    - vpn-api-deployment.yml
+    - vpn-api-service.yml
+    - telegram-bot-deployment.yml
+  delegate_to: "{{ groups['k8s_master'][0] }}"
