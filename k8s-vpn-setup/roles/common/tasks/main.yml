@@ -49,39 +49,39 @@
   notify:
     - Применить правила iptables
 
-- name: Обновить apt и установить пакеты необходимые для Docker
-  apt:
-    name:
-      - apt-transport-https
-      - ca-certificates
-      - curl
-      - gnupg-agent
-      - software-properties-common
-    state: present
-    update_cache: yes
-
-- name: Создать директорию для ключей Docker
-  file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: 0755
-
-- name: Скачать GPG ключ Docker
-  get_url:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    dest: /tmp/docker.key
-    mode: 0644
-
-- name: Добавить ключ Docker в новый формат
-  shell: |
-    cat /tmp/docker.key | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    chmod a+r /etc/apt/keyrings/docker.gpg
-
-- name: Добавить репозиторий Docker
-  apt_repository:
-    repo: deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
-    state: present
-    filename: docker
+#- name: Обновить apt и установить пакеты необходимые для Docker
+#  apt:
+#    name:
+#      - apt-transport-https
+#      - ca-certificates
+#      - curl
+#      - gnupg-agent
+#      - software-properties-common
+#    state: present
+#    update_cache: yes
+#
+#- name: Создать директорию для ключей Docker
+#  file:
+#    path: /etc/apt/keyrings
+#    state: directory
+#    mode: 0755
+#
+#- name: Скачать GPG ключ Docker
+#  get_url:
+#    url: https://download.docker.com/linux/ubuntu/gpg
+#    dest: /tmp/docker.key
+#    mode: 0644
+#
+#- name: Добавить ключ Docker в новый формат
+#  shell: |
+#    cat /tmp/docker.key | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+#    chmod a+r /etc/apt/keyrings/docker.gpg
+#
+#- name: Добавить репозиторий Docker
+#  apt_repository:
+#    repo: deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+#    state: present
+#    filename: docker
 
 - name: Создать директорию для ключей Kubernetes
   file:
@@ -91,14 +91,15 @@
 
 - name: Скачать и установить GPG ключ Kubernetes (новый способ)
   shell: |
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.26/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    curl -fsSL https://pkgs.k8s.io/kubernetes-apt-keyring.gpg | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
     chmod a+r /etc/apt/keyrings/kubernetes-apt-keyring.gpg
   args:
     creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
+
 - name: Добавить репозиторий Kubernetes
   apt_repository:
-    repo: deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.26/deb/ /
+    repo: deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/debian-kubernetes stable main
     state: present
     filename: kubernetes
 
