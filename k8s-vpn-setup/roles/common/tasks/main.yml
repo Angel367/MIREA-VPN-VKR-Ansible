@@ -99,9 +99,13 @@
 
 - name: Добавить репозиторий Kubernetes
   apt_repository:
-    repo: deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/debian-kubernetes stable main
+    repo: deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/k8s.io/apt/ stable main
     state: present
     filename: kubernetes
+
+- name: Обновить apt после добавления репозитория Kubernetes
+  apt:
+    update_cache: yes
 
 - name: Установить Docker
   apt:
