@@ -89,20 +89,16 @@
     state: directory
     mode: 0755
 
-- name: Скачать GPG ключ Kubernetes
-  get_url:
-    url: https://pkgs.k8s.io/core:/stable:/v1.26/deb/Release.key
-    dest: /tmp/kubernetes.key
-    mode: 0644
-
-- name: Добавить ключ Kubernetes в новый формат
+- name: Скачать и установить GPG ключ Kubernetes (новый способ)
   shell: |
-    cat /tmp/kubernetes.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes.gpg
-    chmod a+r /etc/apt/keyrings/kubernetes.gpg
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.26/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    chmod a+r /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
 - name: Добавить репозиторий Kubernetes
   apt_repository:
-    repo: deb [signed-by=/etc/apt/keyrings/kubernetes.gpg] https://pkgs.k8s.io/core:/stable:/v1.26/deb/ /
+    repo: deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.26/deb/ /
     state: present
     filename: kubernetes
 
