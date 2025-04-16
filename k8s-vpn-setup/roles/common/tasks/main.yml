@@ -1,3 +1,32 @@
+- name: Создать директорию для ключей Kubernetes
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: 0755
+
+- name: Скачать GPG ключ Kubernetes
+  get_url:
+    url: https://pkgs.k8s.io/core:/stable:/v1.26/deb/Release.key
+    dest: /tmp/kubernetes.key
+    mode: 0644
+
+- name: Добавить ключ Kubernetes в новый формат
+  shell: |
+    cat /tmp/kubernetes.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes.gpg
+    chmod a+r /etc/apt/keyrings/kubernetes.gpg
+
+- name: Добавить репозиторий Kubernetes
+  apt_repository:
+    repo: deb [signed-by=/etc/apt/keyrings/kubernetes.gpg] https://pkgs.k8s.io/core:/stable:/v1.26/deb/ /
+    state: present
+    filename: kubernetes
+```
+
+## 3. Обновленная версия файла roles/common/tasks/main.yml
+
+Вот полностью обновленный файл `roles/common/tasks/main.yml`:
+
+```yaml
 ---
 - name: Обновление репозиториев apt
   apt:
@@ -49,108 +78,80 @@
   notify:
     - Применить правила iptables
 
-# Очистка существующих конфигураций Docker
-- name: Удаление существующих конфигураций Docker
-  file:
-    path: "{{ item }}"
-    state: absent
-  with_items:
-    - /etc/apt/sources.list.d/docker.list
-    - /etc/apt/sources.list.d/docker-ce.list
-    - /etc/apt/keyrings/docker.gpg
-    - /usr/share/keyrings/docker-archive-keyring.gpg
+- name: Обновить apt и установить пакеты необходимые для Docker
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg-agent
+      - software-properties-common
+    state: present
+    update_cache: yes
 
-# Очистка существующих конфигураций Kubernetes
-- name: Удаление существующих конфигураций Kubernetes
-  file:
-    path: "{{ item }}"
-    state: absent
-  with_items:
-    - /etc/apt/sources.list.d/kubernetes.list
-    - /etc/apt/keyrings/kubernetes.gpg
-    - /usr/share/keyrings/kubernetes-archive-keyring.gpg
-
-# Установка Docker
-- name: Создать директорию для ключей
+- name: Создать директорию для ключей Docker
   file:
     path: /etc/apt/keyrings
     state: directory
     mode: 0755
 
-- name: Установка ключа GPG для Docker
-  shell: |
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    chmod a+r /etc/apt/keyrings/docker.gpg
-  args:
-    creates: /etc/apt/keyrings/docker.gpg
-
-- name: Добавление репозитория Docker
-  shell: |
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-  args:
-    creates: /etc/apt/sources.list.d/docker.list
-
-# Установка Kubernetes
-- name: Установка ключа GPG для Kubernetes
-  shell: |
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.26/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes.gpg
-    chmod a+r /etc/apt/keyrings/kubernetes.gpg
-  args:
-    creates: /etc/apt/keyrings/kubernetes.gpg
-
-- name: Добавление репозитория Kubernetes
-  shell: |
-    echo "deb [signed-by=/etc/apt/keyrings/kubernetes.gpg] https://pkgs.k8s.io/core:/stable:/v1.26/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list > /dev/null
-  args:
-    creates: /etc/apt/sources.list.d/kubernetes.list
-
-- name: Обновление кэша apt
-  apt:
-    update_cache: yes
-
-- name: Установка Docker CE
-  apt:
-    name:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
-    state: present
-
-- name: Настройка Docker для использования systemd
-  copy:
-    dest: /etc/docker/daemon.json
-    content: |
-      {
-        "exec-opts": ["native.cgroupdriver=systemd"],
-        "log-driver": "json-file",
-        "log-opts": {
-          "max-size": "100m"
-        },
-        "storage-driver": "overlay2"
-      }
+- name: Скачать GPG ключ Docker
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /tmp/docker.key
     mode: 0644
-  register: docker_daemon_config
 
-- name: Создание директории для Docker
+- name: Добавить ключ Docker в новый формат
+  shell: |
+    cat /tmp/docker.key | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+
+- name: Добавить репозиторий Docker
+  apt_repository:
+    repo: deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+    state: present
+    filename: docker
+
+- name: Создать директорию для ключей Kubernetes
   file:
-    path: /etc/systemd/system/docker.service.d
+    path: /etc/apt/keyrings
     state: directory
     mode: 0755
 
-- name: Перезапуск Docker при изменении конфигурации
-  systemd:
-    name: docker
-    state: restarted
-    daemon_reload: yes
-  when: docker_daemon_config.changed
+- name: Скачать GPG ключ Kubernetes
+  get_url:
+    url: https://pkgs.k8s.io/core:/stable:/v1.26/deb/Release.key
+    dest: /tmp/kubernetes.key
+    mode: 0644
 
-- name: Установка Kubernetes компонентов
+- name: Добавить ключ Kubernetes в новый формат
+  shell: |
+    cat /tmp/kubernetes.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes.gpg
+    chmod a+r /etc/apt/keyrings/kubernetes.gpg
+
+- name: Добавить репозиторий Kubernetes
+  apt_repository:
+    repo: deb [signed-by=/etc/apt/keyrings/kubernetes.gpg] https://pkgs.k8s.io/core:/stable:/v1.26/deb/ /
+    state: present
+    filename: kubernetes
+
+- name: Установить Docker
+  apt:
+    name:
+      - docker-ce={{ docker_version }}
+      - docker-ce-cli={{ docker_version }}
+      - containerd.io
+    state: present
+    update_cache: yes
+
+- name: Установить kubeadm, kubelet и kubectl
   apt:
     name:
       - kubelet
       - kubeadm
       - kubectl
     state: present
+    update_cache: yes
 
 - name: Зафиксировать версию Kubernetes пакетов
   dpkg_selections:
@@ -160,15 +161,5 @@
     - kubelet
     - kubeadm
     - kubectl
-
-- name: Включение и запуск Docker
-  systemd:
-    name: docker
-    state: started
-    enabled: yes
-
-- name: Включение и запуск kubelet
-  systemd:
-    name: kubelet
-    state: started
-    enabled: yes
+    - docker-ce
+    - docker-ce-cli
