@@ -51,3 +51,10 @@
     name: docker
     state: started
     enabled: yes
+
+- name: Install Docker Python modules
+  pip:
+    name:
+      - docker
+      - docker-compose
+    state: present
