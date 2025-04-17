@@ -1,0 +1,53 @@
+---
+- name: Add Docker GPG apt key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Add Docker repository
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install Docker packages
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+  notify: restart docker
+
+- name: Install Docker Python package
+  pip:
+    name: docker
+    state: present
+
+- name: Download Docker Compose
+  get_url:
+    url: https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-{{ ansible_system }}-{{ ansible_architecture }}
+    dest: /usr/local/bin/docker-compose
+    mode: '0755'
+    force: yes
+
+- name: Create a Docker user group
+  group:
+    name: docker
+    state: present
+
+- name: Add the current user to the Docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+  when: ansible_user != "root"
+
+- name: Start and enable Docker service
+  service:
+    name: docker
+    state: started
+    enabled: yes

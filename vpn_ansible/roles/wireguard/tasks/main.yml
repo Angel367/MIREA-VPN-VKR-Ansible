@@ -1,0 +1,58 @@
+---
+- name: Create WireGuard directory
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  with_items:
+    - /root/wireguard
+    - /root/wireguard/data
+    - /root/.wg-rest
+
+- name: Generate WireGuard API token
+  set_fact:
+    api_token: "{{ wireguard_api_token }}"
+  when: not api_token_hashed
+
+- name: Create Docker Compose file
+  template:
+    src: docker-compose.yml.j2
+    dest: /root/wireguard/docker-compose.yml
+    mode: '0644'
+
+- name: Create environment file
+  template:
+    src: .env.j2
+    dest: /root/wireguard/.env
+    mode: '0600'
+
+- name: Pull WireGuard REST API Docker image
+  command: docker pull leonovk/wg-rest-api:{{ wireguard_api_version }}
+  args:
+    chdir: /root/wireguard
+
+- name: Start WireGuard REST API
+  command: docker-compose up -d
+  args:
+    chdir: /root/wireguard
+  register: start_result
+
+- name: Check WireGuard API status
+  uri:
+    url: "http://localhost:{{ wireguard_api_port }}/healthz"
+    method: GET
+    status_code: 200
+    timeout: 10
+  register: wireguard_status
+  retries: 5
+  delay: 10
+  until: wireguard_status.status == 200
+  failed_when: false
+
+- name: Display WireGuard API status
+  debug:
+    var: wireguard_status
+
+- name: Register server details
+  debug:
+    msg: "WireGuard REST API started on {{ inventory_hostname }} ({{ ansible_host }})"

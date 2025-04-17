@@ -1,9 +1,0 @@
----
-# Общие переменные для всех серверов
-wireguard_port: 51820
-wireguard_network: "10.0.0.0/24"
-wireguard_interface: "wg0"
-
-# Информация о бэкенде
-backend_api_url: "http://194.87.252.26/api"
-backend_api_key: "your_api_key_here"

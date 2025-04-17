@@ -1,0 +1,11 @@
+---
+- name: Setup WireGuard VPN servers
+  hosts: vpn_servers
+  become: true
+  become_method: sudo
+  gather_facts: true
+
+  roles:
+    - common
+    - docker
+    - wireguard

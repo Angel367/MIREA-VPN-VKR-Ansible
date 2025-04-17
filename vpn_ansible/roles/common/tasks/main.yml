@@ -1,0 +1,63 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: Upgrade all packages
+  apt:
+    upgrade: dist
+  when: update_packages and ansible_os_family == "Debian"
+
+- name: Install common packages
+  apt:
+    name:
+      - curl
+      - wget
+      - vim
+      - htop
+      - net-tools
+      - ufw
+      - fail2ban
+      - unzip
+      - python3-pip
+      - gnupg
+      - lsb-release
+      - ca-certificates
+      - software-properties-common
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Set timezone
+  timezone:
+    name: "{{ timezone }}"
+
+- name: Configure UFW - Allow SSH
+  ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+
+- name: Configure UFW - Allow WireGuard port
+  ufw:
+    rule: allow
+    port: "{{ wireguard_port }}"
+    proto: udp
+
+- name: Configure UFW - Allow WireGuard API port
+  ufw:
+    rule: allow
+    port: "{{ wireguard_api_port }}"
+    proto: tcp
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+    policy: deny
+
+- name: Start and enable Fail2Ban
+  service:
+    name: fail2ban
+    state: started
+    enabled: yes

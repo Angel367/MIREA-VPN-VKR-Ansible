@@ -1,9 +1,0 @@
----
-- name: Include installation tasks
-  include_tasks: install.yml
-
-- name: Include configuration tasks
-  include_tasks: configure.yml
-
-- name: Register server with backend
-  include_tasks: register_with_backend.yml

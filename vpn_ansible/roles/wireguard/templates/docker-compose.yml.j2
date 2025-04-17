@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+  wireguard-api:
+    image: leonovk/wg-rest-api:{{ wireguard_api_version }}
+    container_name: wireguard-api
+    env_file:
+      - .env
+    volumes:
+      - /root/.wg-rest:/etc/wireguard
+    ports:
+      - "{{ wireguard_port }}:51820/udp"
+      - "{{ wireguard_api_port }}:3000"
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
