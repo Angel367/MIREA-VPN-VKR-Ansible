@@ -1,5 +1,38 @@
 ---
-- name: Register VPN server with backend
+- name: Check if public key exists
+  stat:
+    path: /etc/wireguard/public.key
+  register: public_key_file
+
+- name: Read public key
+  slurp:
+    src: /etc/wireguard/public.key
+  register: encoded_public_key
+  when: public_key_file.stat.exists
+
+- name: Set public key as fact
+  set_fact:
+    wg_public_key: "{{ encoded_public_key['content'] | b64decode | trim }}"
+  when: public_key_file.stat.exists
+
+- name: Display public key for debugging
+  debug:
+    var: wg_public_key
+    verbosity: 2
+  when: public_key_file.stat.exists
+
+# Регистрация сервера в бэкенде или получение информации о существующем
+- name: Check if server exists in backend
+  uri:
+    url: "{{ backend_api_url }}/servers/{{ server_id }}/"
+    method: GET
+    headers:
+      Authorization: "Token {{ backend_api_key }}"
+    status_code: [200, 404]
+  register: server_check
+  ignore_errors: yes
+
+- name: Register new VPN server with backend
   uri:
     url: "{{ backend_api_url }}/servers/"
     method: POST
@@ -13,11 +46,12 @@
       server_location: "{{ city_id }}"
       api_key: "{{ wg_public_key }}"
       is_active: true
-    status_code: [200, 201, 400]  # 400 в случае если сервер уже зарегистрирован
+    status_code: [201]
   register: server_registration
-  failed_when: server_registration.status != 201 and server_registration.status != 200 and server_registration.status != 400
+  when: server_check.status == 404 and public_key_file.stat.exists
+  failed_when: false
 
-- name: Update existing VPN server if it already exists
+- name: Update existing VPN server
   uri:
     url: "{{ backend_api_url }}/servers/{{ server_id }}/"
     method: PATCH
@@ -26,13 +60,31 @@
       Authorization: "Token {{ backend_api_key }}"
       Content-Type: "application/json"
     body:
+      server_name: "{{ server_name }} VPN"
+      server_ip: "{{ server_ip }}"
       api_key: "{{ wg_public_key }}"
       is_active: true
     status_code: [200]
-  when: server_registration.status == 400
   register: server_update
+  when: server_check.status == 200 and public_key_file.stat.exists
+  failed_when: false
 
-- name: Register VPN service with backend
+# Регистрация или обновление VPN-сервиса
+- name: Check if service exists in backend
+  uri:
+    url: "{{ backend_api_url }}/services/?server={{ server_id }}"
+    method: GET
+    headers:
+      Authorization: "Token {{ backend_api_key }}"
+    status_code: [200]
+  register: service_check
+
+- name: Set service ID fact if service exists
+  set_fact:
+    service_id: "{{ service_check.json[0].id }}"
+  when: service_check.status == 200 and service_check.json | length > 0
+
+- name: Register new VPN service with backend
   uri:
     url: "{{ backend_api_url }}/services/"
     method: POST
@@ -45,9 +97,28 @@
       name: "WireGuard {{ server_name }}"
       protocol: "wireguard"
       port: "{{ wireguard_port }}"
-    status_code: [200, 201, 400]  # 400 в случае если сервис уже зарегистрирован
-  register: service_registration
+    status_code: [201]
+  register: new_service_registration
+  when: service_check.json | length == 0
+  failed_when: false
 
+- name: Update existing VPN service
+  uri:
+    url: "{{ backend_api_url }}/services/{{ service_id }}/"
+    method: PATCH
+    body_format: json
+    headers:
+      Authorization: "Token {{ backend_api_key }}"
+      Content-Type: "application/json"
+    body:
+      name: "WireGuard {{ server_name }}"
+      protocol: "wireguard"
+      port: "{{ wireguard_port }}"
+    status_code: [200]
+  when: service_check.json | length > 0 and service_id is defined
+  failed_when: false
+
+# Создание и настройка скрипта мониторинга
 - name: Create monitoring script
   template:
     src: monitor_vpn.py.j2
