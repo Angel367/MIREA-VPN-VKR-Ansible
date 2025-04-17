@@ -6,7 +6,6 @@
     mode: '0755'
   with_items:
     - /root/wireguard
-    - /root/wireguard/data
     - /root/.wg-rest
 
 - name: Generate WireGuard API token
@@ -14,31 +13,27 @@
     api_token: "{{ wireguard_api_token }}"
   when: not api_token_hashed
 
-- name: Create Docker Compose file
-  template:
-    src: docker-compose.yml.j2
-    dest: /root/wireguard/docker-compose.yml
-    mode: '0644'
+- name: Stop any previous container
+  command: docker stop wireguard-api
+  ignore_errors: yes
 
-- name: Create environment file
-  template:
-    src: .env.j2
-    dest: /root/wireguard/.env
-    mode: '0600'
+- name: Remove any previous container
+  command: docker rm wireguard-api
+  ignore_errors: yes
 
-# Изменен подход к pull образа
-- name: Pull WireGuard REST API Docker image
-  docker_image:
-    name: leonovk/wg-rest-api
-    source: pull
-    tag: "{{ wireguard_api_tag }}"
-  become: true
-
-- name: Start WireGuard REST API
-  docker_compose:
-    project_src: /root/wireguard
-    state: present
-  register: start_result
+- name: Run WireGuard container
+  command: >
+    docker run -d 
+    --name wireguard-api 
+    -e WG_HOST={{ ansible_host }} 
+    -e AUTH_TOKEN={{ wireguard_api_token }} 
+    -e ENVIRONMENT=production 
+    -v /root/.wg-rest:/etc/wireguard 
+    -p {{ wireguard_port }}:51820/udp 
+    -p {{ wireguard_api_port }}:3000 
+    --cap-add=NET_ADMIN 
+    --restart unless-stopped 
+    leonovk/wg-rest-api:latest
 
 - name: Wait for service to start
   pause:
