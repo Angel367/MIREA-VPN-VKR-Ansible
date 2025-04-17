@@ -28,6 +28,7 @@
     -e WG_HOST={{ ansible_host }} 
     -e AUTH_TOKEN={{ wireguard_api_token }} 
     -e ENVIRONMENT=production 
+    -e WG_DEFAULT_DNS=8.8.8.8
     -v /root/.wg-rest:/etc/wireguard 
     -p {{ wireguard_port }}:51820/udp 
     -p {{ wireguard_api_port }}:3000 
