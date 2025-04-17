@@ -26,16 +26,23 @@
     dest: /root/wireguard/.env
     mode: '0600'
 
+# Изменен подход к pull образа
 - name: Pull WireGuard REST API Docker image
-  command: docker pull leonovk/wg-rest-api:{{ wireguard_api_version }}
-  args:
-    chdir: /root/wireguard
+  docker_image:
+    name: leonovk/wg-rest-api
+    source: pull
+    tag: "{{ wireguard_api_tag }}"
+  become: true
 
 - name: Start WireGuard REST API
-  command: docker-compose up -d
-  args:
-    chdir: /root/wireguard
+  docker_compose:
+    project_src: /root/wireguard
+    state: present
   register: start_result
+
+- name: Wait for service to start
+  pause:
+    seconds: 15
 
 - name: Check WireGuard API status
   uri:

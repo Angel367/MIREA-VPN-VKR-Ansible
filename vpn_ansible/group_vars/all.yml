@@ -1,6 +1,6 @@
 ---
 # Общие переменные
-wireguard_api_version: 1.8.11
+wireguard_api_tag: latest  # Изменено с версии 1.8.11 на latest
 docker_compose_version: "2.21.0"
 
 # Базовая конфигурация сервера
