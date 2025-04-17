@@ -1,5 +1,0 @@
----
-- import_playbook: playbooks/master-setup.yml
-- import_playbook: playbooks/worker-setup.yml
-- import_playbook: playbooks/outline-setup.yml
-- import_playbook: playbooks/vpn-api-setup.yml

@@ -1,3 +1,0 @@
----
-- name: Применить правила iptables
-  command: iptables-restore < /etc/iptables/rules.v4

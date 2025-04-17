@@ -1,0 +1,61 @@
+---
+- name: Register VPN server with backend
+  uri:
+    url: "{{ backend_api_url }}/servers/"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Token {{ backend_api_key }}"
+      Content-Type: "application/json"
+    body:
+      server_name: "{{ server_name }} VPN"
+      server_ip: "{{ server_ip }}"
+      server_location: "{{ city_id }}"
+      api_key: "{{ wg_public_key }}"
+      is_active: true
+    status_code: [200, 201, 400]  # 400 в случае если сервер уже зарегистрирован
+  register: server_registration
+  failed_when: server_registration.status != 201 and server_registration.status != 200 and server_registration.status != 400
+
+- name: Update existing VPN server if it already exists
+  uri:
+    url: "{{ backend_api_url }}/servers/{{ server_id }}/"
+    method: PATCH
+    body_format: json
+    headers:
+      Authorization: "Token {{ backend_api_key }}"
+      Content-Type: "application/json"
+    body:
+      api_key: "{{ wg_public_key }}"
+      is_active: true
+    status_code: [200]
+  when: server_registration.status == 400
+  register: server_update
+
+- name: Register VPN service with backend
+  uri:
+    url: "{{ backend_api_url }}/services/"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Token {{ backend_api_key }}"
+      Content-Type: "application/json"
+    body:
+      server: "{{ server_id }}"
+      name: "WireGuard {{ server_name }}"
+      protocol: "wireguard"
+      port: "{{ wireguard_port }}"
+    status_code: [200, 201, 400]  # 400 в случае если сервис уже зарегистрирован
+  register: service_registration
+
+- name: Create monitoring script
+  template:
+    src: monitor_vpn.py.j2
+    dest: /usr/local/bin/monitor_vpn.py
+    mode: '0755'
+
+- name: Setup cron job to monitor VPN and report stats
+  cron:
+    name: "Monitor VPN and report statistics"
+    minute: "*/10"
+    job: "/usr/local/bin/monitor_vpn.py"

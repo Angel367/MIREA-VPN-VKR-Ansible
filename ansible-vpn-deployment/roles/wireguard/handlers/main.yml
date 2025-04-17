@@ -1,0 +1,15 @@
+---
+- name: restart wireguard
+  systemd:
+    name: "wg-quick@{{ wireguard_interface }}"
+    state: restarted
+
+- name: apply sysctl
+  command: sysctl -p /etc/sysctl.d/99-wireguard.conf
+  changed_when: false
+
+- name: restart firewalld
+  systemd:
+    name: firewalld
+    state: restarted
+  when: ansible_os_family == "RedHat"

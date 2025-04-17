@@ -1,0 +1,8 @@
+---
+- name: Setup WireGuard VPN on all VPN servers
+  hosts: vpn_servers
+  become: yes
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  roles:
+    - wireguard

@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+
+import json
+import requests
+import subprocess
+import psutil
+import time
+import os
+
+# Конфигурация
+BACKEND_API_URL = "{{ backend_api_url }}"
+API_KEY = "{{ backend_api_key }}"
+SERVER_ID = {{ server_id }}
+WG_INTERFACE = "{{ wireguard_interface }}"
+
+def get_wireguard_stats():
+    """Получает статистику по соединениям WireGuard"""
+    try:
+        wg_show = subprocess.check_output(["wg", "show", WG_INTERFACE], text=True)
+        lines = wg_show.split('\n')
+
+        # Собираем статистику по пирам
+        peers = []
+        current_peer = None
+
+        for line in lines:
+            if line.startswith("peer:"):
+                if current_peer:
+                    peers.append(current_peer)
+                current_peer = {"public_key": line.split("peer:")[1].strip()}
+            elif current_peer and "transfer:" in line:
+                parts = line.split("transfer:")
+                if len(parts) > 1:
+                    transfer_parts = parts[1].strip().split("received,")
+                    if len(transfer_parts) > 1:
+                        received = transfer_parts[0].strip().replace("B", "")
+                        sent = transfer_parts[1].strip().replace("B", "")
+
+                        # Конвертируем значения (например, 12.43 KiB) в байты
+                        def convert_to_bytes(value):
+                            value = value.strip()
+                            if "Ki" in value:
+                                return float(value.replace("Ki", "")) * 1024
+                            elif "Mi" in value:
+                                return float(value.replace("Mi", "")) * 1024 * 1024
+                            elif "Gi" in value:
+                                return float(value.replace("Gi", "")) * 1024 * 1024 * 1024
+                            else:
+                                return float(value)
+
+                        current_peer["received_bytes"] = convert_to_bytes(received)
+                        current_peer["sent_bytes"] = convert_to_bytes(sent)
+
+        if current_peer:
+            peers.append(current_peer)
+
+        return peers
+    except Exception as e:
+        print(f"Ошибка при получении статистики WireGuard: {e}")
+        return []
+
+def get_system_stats():
+    """Собирает системную статистику"""
+    try:
+        cpu_percent = psutil.cpu_percent(interval=1)
+        mem = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+
+        return {
+            "cpu_percent": cpu_percent,
+            "memory_percent": mem.percent,
+            "disk_percent": disk.percent
+        }
+    except Exception as e:
+        print(f"Ошибка при получении системной статистики: {e}")
+        return {}
+
+def report_to_backend():
+    """Отправляет статистику на бэкенд"""
+    try:
+        wireguard_stats = get_wireguard_stats()
+        system_stats = get_system_stats()
+
+        # Для каждого пира обновляем использование трафика
+        for peer in wireguard_stats:
+            headers = {
+                "Authorization": f"Token {API_KEY}",
+                "Content-Type": "application/json"
+            }
+
+            # Получаем VPN ключ по публичному ключу (в реальной системе нужно реализовать этот API endpoint)
+            response = requests.get(
+                f"{BACKEND_API_URL}/keys/by_public_key/?public_key={peer['public_key']}",
+                headers=headers
+            )
+
+            if response.status_code == 200:
+                key_data = response.json()
+                key_id = key_data.get("id")
+
+                if key_id:
+                    # Обновляем информацию о трафике
+                    traffic_data = {
+                        "bytes_used": peer.get("received_bytes", 0) + peer.get("sent_bytes", 0)
+                    }
+
+                    update_response = requests.post(
+                        f"{BACKEND_API_URL}/keys/{key_id}/update_traffic/",
+                        headers=headers,
+                        json=traffic_data
+                    )
+
+                    if update_response.status_code == 200:
+                        print(f"Успешно обновлена информация о трафике для ключа {key_id}")
+                    else:
+                        print(f"Ошибка при обновлении информации о трафике: {update_response.status_code}")
+
+        # Отправляем системную статистику
+        system_data = {
+            "server_id": SERVER_ID,
+            "system_stats": system_stats
+        }
+
+        system_response = requests.post(
+            f"{BACKEND_API_URL}/servers/{SERVER_ID}/stats/",
+            headers=headers,
+            json=system_data
+        )
+
+        if system_response.status_code == 200:
+            print(f"Успешно отправлена системная статистика")
+        else:
+            print(f"Ошибка при отправке системной статистики: {system_response.status_code}")
+
+    except Exception as e:
+        print(f"Ошибка при отправке данных на бэкенд: {e}")
+
+if __name__ == "__main__":
+    report_to_backend()

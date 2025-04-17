@@ -1,0 +1,38 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: Install required packages for Debian/Ubuntu
+  apt:
+    name:
+      - wireguard
+      - wireguard-tools
+      - python3-pip
+      - curl
+      - iptables
+      - ufw
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install required packages for CentOS/RHEL
+  yum:
+    name:
+      - epel-release
+      - elrepo-release
+      - wireguard-tools
+      - python3-pip
+      - curl
+      - iptables
+      - firewalld
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Install required Python packages
+  pip:
+    name:
+      - requests
+      - psutil
+    state: present
