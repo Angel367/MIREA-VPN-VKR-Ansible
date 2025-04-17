@@ -14,7 +14,7 @@ wireguard_endpoint_port: 51820
 
 # API токен для безопасности
 # В реальном использовании этот токен следует хранить в безопасном месте, например, в Ansible Vault
-wireguard_api_token: "your_secure_api_token_here"
+wireguard_api_token: "MS6q8YL216R2Eoxjit1zowBHdQf9XJsrkbPXp4miWXE="
 
 # Настройки безопасности
 api_token_hashed: false  # Установите true, чтобы использовать хешированный токен
