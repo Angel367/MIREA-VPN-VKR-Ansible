@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+import json
+import requests
+import subprocess
+import socket
+import os
+from urllib.parse import urlparse
+
+# Server details
+server_name = "{{ server_name }}"
+server_location = "{{ server_location }}"
+api_url = "{{ api_url.stdout }}"
+cert_sha = "{{ cert_sha.stdout }}"
+backend_api_url = "{{ backend_api_url }}"
+
+# Get server hostname
+hostname = socket.gethostname()
+
+# Extract location information from hostname or use provided location
+if not server_location:
+    server_location = hostname
+
+# Determine city ID (need to query the backend first)
+def get_city_id(location_name):
+    try:
+        # Get all cities
+        response = requests.get(f"{backend_api_url}/cities/")
+        if response.status_code == 200:
+            cities = response.json()['results']
+
+            # Try to find a city that matches our location
+            for city in cities:
+                if location_name.lower() in city['city_name'].lower():
+                    return city['id']
+
+            # If no match, use the first city
+            if cities:
+                return cities[0]['id']
+
+        # If we couldn't find any cities, let's create one
+        # First, get a country
+        response = requests.get(f"{backend_api_url}/countries/")
+        if response.status_code == 200:
+            countries = response.json()['results']
+            if not countries:
+                # Create a default country if none exists
+                country_data = {"country_name": "Default Country"}
+                response = requests.post(f"{backend_api_url}/countries/", json=country_data)
+                if response.status_code == 201:
+                    country_id = response.json()['id']
+                else:
+                    raise Exception(f"Failed to create country: {response.text}")
+            else:
+                country_id = countries[0]['id']
+
+            # Now create a city
+            city_data = {
+                "city_name": location_name,
+                "country": country_id
+            }
+            response = requests.post(f"{backend_api_url}/cities/", json=city_data)
+            if response.status_code == 201:
+                return response.json()['id']
+            else:
+                raise Exception(f"Failed to create city: {response.text}")
+
+        raise Exception(f"Couldn't get city information: {response.text}")
+    except Exception as e:
+        print(f"Error getting city ID: {str(e)}")
+        # Return a default city ID of 1 if all else fails
+        return 1
+
+# Get or create city ID
+city_id = get_city_id(server_location.split(',')[0].strip())
+
+# Prepare server data
+server_data = {
+    "server_name": server_name,
+    "city": city_id,
+    "server_location": server_location,
+    "api_key": api_url,
+    "cert_sha": cert_sha,
+    "api_url": api_url,
+    "active": True
+}
+
+# Register server with backend
+try:
+    response = requests.post(f"{backend_api_url}/servers/register/", json=server_data)
+    if response.status_code == 201:
+        print(json.dumps(response.json(), indent=2))
+        print(f"Server {server_name} successfully registered with backend")
+    else:
+        print(f"Failed to register server: {response.text}")
+except Exception as e:
+    print(f"Error registering server: {str(e)}")

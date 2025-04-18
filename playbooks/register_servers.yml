@@ -1,0 +1,48 @@
+---
+- name: Register Outline VPN Servers with Backend
+  hosts: vpn_servers
+  become: true
+  vars:
+    backend_api_url: "http://194.87.252.26:8000/api"
+
+  tasks:
+    - name: Extract Outline API URL
+      shell: |
+        grep -oP "apiUrl\":\"\K[^\"]*" /opt/outline/access.txt
+      register: api_url
+      ignore_errors: yes
+
+    - name: Extract Outline Cert SHA256
+      shell: |
+        grep -oP "certSha256\":\"\K[^\"]*" /opt/outline/access.txt
+      register: cert_sha
+      ignore_errors: yes
+
+    - name: Create script to register server with backend
+      template:
+        src: register_server.py.j2
+        dest: /opt/outline/register_server.py
+        mode: '0755'
+      when: api_url.stdout is defined and api_url.stdout != ""
+
+    - name: Register server with backend
+      shell: python3 /opt/outline/register_server.py
+      args:
+        creates: /opt/outline/server_registered
+      register: server_registration
+      when: api_url.stdout is defined and api_url.stdout != ""
+
+    - name: Create server_registered file
+      copy:
+        content: "{{ server_registration.stdout | default('Registered') }}"
+        dest: /opt/outline/server_registered
+        mode: '0600'
+      when: server_registration.changed|default(false)
+
+    - name: Display server information
+      debug:
+        msg:
+          - "Server: {{ server_name }}"
+          - "API URL: {{ api_url.stdout | default('Not available') }}"
+          - "CERT SHA: {{ cert_sha.stdout | default('Not available') }}"
+          - "Registration status: {{ server_registration.stdout | default('Not registered') }}"

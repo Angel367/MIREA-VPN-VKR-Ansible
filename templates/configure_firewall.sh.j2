@@ -1,0 +1,47 @@
+#!/bin/bash
+# This script configures the firewall rules for Outline VPN server
+
+# Allow SSH
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+
+# Allow Outline VPN server ports
+iptables -A INPUT -p tcp --dport 1024:65535 -j ACCEPT
+iptables -A INPUT -p udp --dport 1024:65535 -j ACCEPT
+
+# Allow established connections
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Allow local traffic
+iptables -A INPUT -i lo -j ACCEPT
+
+# Log and drop everything else
+iptables -A INPUT -j LOG --log-prefix "iptables denied: " --log-level 7
+iptables -A INPUT -j DROP
+
+# Save rules
+if which iptables-save >/dev/null 2>&1; then
+    iptables-save > /etc/iptables/rules.v4 || iptables-save > /etc/iptables.rules
+fi
+
+# Create service to restore iptables rules on boot if needed
+if [ ! -f /etc/systemd/system/iptables-restore.service ]; then
+    cat > /etc/systemd/system/iptables-restore.service << EOF
+[Unit]
+Description=Restore iptables firewall rules
+Before=network-pre.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/iptables-restore /etc/iptables.rules
+ExecReload=/sbin/iptables-restore /etc/iptables.rules
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl enable iptables-restore.service
+fi
+
+echo "Firewall configuration completed."

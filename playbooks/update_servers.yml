@@ -1,0 +1,29 @@
+---
+- name: Update Outline VPN Servers
+  hosts: vpn_servers
+  become: true
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+      when: ansible_os_family == "Debian"
+
+    - name: Restart Outline server
+      service:
+        name: outline-server
+        state: restarted
+      ignore_errors: yes
+
+    - name: Check Outline server status
+      shell: "systemctl status watchtower docker outline-server || true"
+      register: status
+
+    - name: Display status
+      debug:
+        var: status.stdout_lines

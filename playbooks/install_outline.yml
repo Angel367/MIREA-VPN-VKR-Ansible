@@ -1,0 +1,108 @@
+---
+- name: Install Outline VPN Server
+  hosts: vpn_servers
+  become: true
+  vars:
+    backend_api_url: "http://194.87.252.26:8000/api"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install required packages
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - curl
+        - wget
+        - python3
+        - python3-pip
+        - iptables
+      when: ansible_os_family == "Debian"
+
+    - name: Install required Python packages
+      pip:
+        name:
+          - requests
+          - urllib3
+        state: present
+
+    - name: Check if Outline is already installed
+      stat:
+        path: /opt/outline/access.txt
+      register: outline_access_file
+
+    - name: Download and run Outline installation script
+      shell: |
+        bash -c "$(wget -qO- https://raw.githubusercontent.com/Jigsaw-Code/outline-server/master/src/server_manager/install_scripts/install_server.sh)"
+      args:
+        creates: /opt/outline
+      register: outline_install
+      when: not outline_access_file.stat.exists
+
+    - name: Create outline directory if it doesn't exist
+      file:
+        path: /opt/outline
+        state: directory
+        mode: '0755'
+      when: not outline_access_file.stat.exists
+
+    - name: Copy Outline access info to file
+      copy:
+        content: "{{ outline_install.stdout }}"
+        dest: /opt/outline/access.txt
+        mode: '0600'
+      when: not outline_access_file.stat.exists and outline_install.changed
+
+    - name: Extract Outline API URL
+      shell: |
+        grep -oP "apiUrl\":\"\K[^\"]*" /opt/outline/access.txt
+      register: api_url
+      when: outline_install.changed or outline_access_file.stat.exists
+
+    - name: Extract Outline Cert SHA256
+      shell: |
+        grep -oP "certSha256\":\"\K[^\"]*" /opt/outline/access.txt
+      register: cert_sha
+      when: outline_install.changed or outline_access_file.stat.exists
+
+    - name: Configure firewall
+      template:
+        src: configure_firewall.sh.j2
+        dest: /opt/outline/configure_firewall.sh
+        mode: '0755'
+      register: firewall_script
+
+    - name: Apply firewall rules
+      shell: /opt/outline/configure_firewall.sh
+      when: firewall_script.changed
+
+    - name: Create script to register server with backend
+      template:
+        src: register_server.py.j2
+        dest: /opt/outline/register_server.py
+        mode: '0755'
+
+    - name: Register server with backend
+      shell: python3 /opt/outline/register_server.py
+      args:
+        creates: /opt/outline/server_registered
+      register: server_registration
+
+    - name: Create server_registered file
+      copy:
+        content: "{{ server_registration.stdout }}"
+        dest: /opt/outline/server_registered
+        mode: '0600'
+      when: server_registration.changed
+
+    - name: Display server information
+      debug:
+        msg:
+          - "Server: {{ server_name }}"
+          - "API URL: {{ api_url.stdout | default('Not available') }}"
+          - "CERT SHA: {{ cert_sha.stdout | default('Not available') }}"
+          - "Registration status: {{ server_registration.stdout | default('Not registered') }}"
