@@ -1,0 +1,53 @@
+---
+- name: Установка node_exporter и cadvisor в Docker
+  hosts: exporters
+  become: true
+
+  tasks:
+
+    - name: Установить Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    - name: Убедиться, что Docker запущен
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Получить IP адрес сервера
+      command: hostname -I
+      register: ip_result
+
+    - name: Вытащить первый IP
+      set_fact:
+        server_ip: "{{ ip_result.stdout.split()[0] }}"
+
+    - name: Запустить node_exporter
+      docker_container:
+        name: node_exporter
+        image: prom/node-exporter
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "9100:9100"
+        labels:
+          instance_ip: "{{ server_ip }}"
+
+    - name: Запустить cadvisor
+      docker_container:
+        name: cadvisor
+        image: gcr.io/cadvisor/cadvisor:latest
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "8080:8080"
+        volumes:
+          - /:/rootfs:ro
+          - /var/run:/var/run:rw
+          - /sys:/sys:ro
+          - /var/lib/docker/:/var/lib/docker:ro
+        labels:
+          instance_ip: "{{ server_ip }}"
