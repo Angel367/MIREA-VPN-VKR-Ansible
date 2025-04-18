@@ -19,6 +19,17 @@
       set_fact:
         server_ip: "{{ ip_result.stdout.split()[0] }}"
 
+    - name: Установить pip (если нет)
+      apt:
+        name: python3-pip
+        state: present
+        update_cache: yes
+
+    - name: Установить Docker SDK для Python
+      pip:
+        name: docker
+        executable: pip3
+
     - name: Запустить node_exporter
       docker_container:
         name: node_exporter
