@@ -31,11 +31,12 @@
         url: https://download.docker.com/linux/debian/gpg
         state: present
 
-    - name: Add Docker repository
+    - name: Add Docker APT repository (Ubuntu)
       apt_repository:
-        repo: deb [arch=amd64] https://download.docker.com/linux/debian {{ ansible_lsb.codename }} stable
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable"
+        filename: docker
         state: present
-      when: ansible_os_family == "Debian"
+      when: ansible_distribution == "Ubuntu"
 
     - name: Install Docker
       apt:
