@@ -1,6 +1,6 @@
 ---
 - name: Установка node_exporter и cadvisor в Docker
-  hosts: exporters
+  hosts: vpn_servers
   become: true
 
   tasks:
